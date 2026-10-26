@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>细胞核功能实验探究 · 交互实验室</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style>
+*{box-sizing:border-box}
+body{font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;background:linear-gradient(135deg,#eef7ff 0%,#f3fbf5 50%,#fdf6ec 100%);min-height:100vh;color:#1e293b;overscroll-behavior:none}
+.card{background:#fff;border-radius:16px;padding:14px 16px;box-shadow:0 6px 20px rgba(15,23,42,.06);border:1px solid rgba(148,163,184,.18)}
+.tab{padding:10px 14px;border-radius:14px;font-weight:600;font-size:14px;background:rgba(255,255,255,.7);border:1px solid rgba(148,163,184,.25);color:#475569;transition:.2s;white-space:nowrap}
+.tab.active{background:linear-gradient(135deg,#0ea5e9,#10b981);color:#fff;box-shadow:0 8px 20px rgba(14,165,233,.3);border-color:transparent}
+.tab .done{display:none}.tab.solved .done{display:inline}
+/* 舞台 */
+.stage{position:relative;width:100%;aspect-ratio:1000/560;border-radius:18px;overflow:hidden;background:radial-gradient(circle at 15% 15%,rgba(255,255,255,.85),transparent 45%),linear-gradient(135deg,#dbeafe,#dcfce7 60%,#fef3c7);box-shadow:inset 0 0 0 1px rgba(255,255,255,.7),0 10px 30px rgba(15,23,42,.08);touch-action:none}
+.stage::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.4) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.4) 1px,transparent 1px);background-size:40px 40px;pointer-events:none}
+.world{position:absolute;left:0;top:0;width:1000px;height:560px;transform-origin:0 0;font-size:15px}
+.item{position:absolute;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.item.nodrag{cursor:default}
+.item.dragging{cursor:grabbing}
+.item img,.item svg{width:100%;height:100%;display:block;pointer-events:none;-webkit-user-drag:none}
+.item img.ph{object-fit:contain;filter:drop-shadow(0 4px 6px rgba(0,0,0,.25))}
+.lbl{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:5px;font-size:14px;white-space:nowrap;background:rgba(255,255,255,.9);padding:2px 8px;border-radius:8px;color:#334155;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,.08);font-weight:500}
+.lbl:empty{display:none}
+.glow{animation:glow 1s ease-in-out infinite}
+@keyframes glow{0%,100%{filter:drop-shadow(0 0 4px rgba(34,197,94,.9))}50%{filter:drop-shadow(0 0 16px rgba(34,197,94,1))}}
+.hintdrag{animation:hint 1.2s ease-in-out infinite}
+@keyframes hint{0%,100%{filter:drop-shadow(0 0 3px rgba(245,158,11,.9))}50%{filter:drop-shadow(0 0 14px rgba(245,158,11,1))}}
+.hinttarget::after{content:"";position:absolute;inset:-12px;border:2px dashed rgba(59,130,246,.75);border-radius:16px;pointer-events:none}
+.dim{opacity:.45;filter:grayscale(.6)}
+.cap{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);background:rgba(15,23,42,.78);color:#fff;padding:6px 16px;border-radius:999px;font-size:13px;pointer-events:none;transition:opacity .3s;max-width:92%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:20}
+.cap:empty{opacity:0}
+.banner{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#0f766e;background:rgba(255,255,255,.7);border-radius:999px;border:1px solid rgba(13,148,136,.3);font-size:15px}
+/* 细胞 */
+.cell{width:100%;height:100%;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff8ea,#f6d7a8 60%,#e8b97a);border:3px solid rgba(180,130,70,.7);box-shadow:inset 0 0 20px rgba(255,255,255,.6),0 4px 10px rgba(0,0,0,.15);transition:box-shadow .4s,opacity .4s,background .4s}
+.empty .cell{opacity:.6}
+.recomb .cell{box-shadow:0 0 0 4px rgba(168,85,247,.35),0 0 26px rgba(168,85,247,.7),inset 0 0 20px rgba(255,255,255,.6)}
+.cell.dividing{background:rgba(255,255,255,.3);border-color:rgba(180,130,70,.35)}
+.nuc{width:100%;height:100%;border-radius:50%;border:2px solid #3b0764;box-shadow:0 2px 6px rgba(0,0,0,.3);position:relative}
+.nuc::after{content:"";position:absolute;left:30%;top:30%;width:22%;height:22%;border-radius:50%;background:rgba(255,255,255,.5)}
+.nuc-dark{background:radial-gradient(circle at 35% 35%,#a78bfa,#5b21b6 65%,#2e1065)}
+.nuc-light{background:radial-gradient(circle at 35% 35%,#ede9fe,#a78bfa 65%,#7c3aed)}
+.nuc-amo{background:radial-gradient(circle at 35% 35%,#fbcfe8,#be185d 65%,#831843);border-color:#500724}
+/* 变形虫 */
+.blob{width:100%;height:100%;background:radial-gradient(circle at 40% 40%,rgba(255,248,214,.97),rgba(226,200,130,.9));border:3px solid rgba(150,120,60,.65);border-radius:60% 40% 55% 45%/50% 60% 40% 50%;animation:blob 6s ease-in-out infinite;box-shadow:0 6px 14px rgba(0,0,0,.12);position:relative;overflow:hidden;transition:filter 1s,opacity 1s}
+.blob::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 25% 65%,rgba(120,90,40,.25) 0 5%,transparent 6%),radial-gradient(circle at 70% 30%,rgba(120,90,40,.25) 0 4%,transparent 5%),radial-gradient(circle at 65% 72%,rgba(120,90,40,.2) 0 4%,transparent 5%),radial-gradient(circle at 35% 25%,rgba(120,90,40,.2) 0 3%,transparent 4%)}
+@keyframes blob{0%,100%{border-radius:60% 40% 55% 45%/50% 60% 40% 50%}33%{border-radius:42% 58% 38% 62%/62% 42% 58% 38%}66%{border-radius:55% 45% 62% 38%/40% 58% 42% 60%}}
+.dying .blob{animation-duration:40s;filter:grayscale(.95);opacity:.5}
+.revived .blob{animation-duration:4s;box-shadow:0 0 0 4px rgba(34,197,94,.3),0 0 22px rgba(34,197,94,.7)}
+.food{width:100%;height:100%;border-radius:50%;background:radial-gradient(circle at 35% 35%,#bbf7d0,#16a34a);border:2px solid #14532d}
+/* 按钮 */
+.btn{padding:10px 16px;border-radius:12px;font-weight:700;font-size:14px;transition:.2s;border:1px solid transparent}
+.btn-run{background:linear-gradient(135deg,#10b981,#059669);color:#fff;flex:1}
+.btn-run:disabled{opacity:.4;cursor:not-allowed}
+.btn-run.ready:not(:disabled){animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.5)}50%{box-shadow:0 0 0 10px rgba(16,185,129,0)}}
+.btn-reset{background:#f1f5f9;color:#475569;border-color:#e2e8f0}
+.btn-reset:hover{background:#e2e8f0}
+.log{list-style:decimal;padding-left:20px;font-size:13px;color:#475569;max-height:170px;overflow:auto;line-height:1.6}
+.log li{margin:2px 0;animation:fadein .4s}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.blank{display:inline-block;min-width:3.2em;text-align:center;border-bottom:2px solid #f59e0b;color:#f59e0b;font-weight:700;padding:0 4px;transition:.3s}
+.blank.ok{color:#059669;border-color:#059669;background:rgba(16,185,129,.1);border-radius:6px}
+.opt{padding:6px 14px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;font-size:13px;font-weight:600;color:#334155;transition:.2s}
+.opt:hover:not(:disabled){border-color:#10b981;color:#059669}
+.opt.right{background:#10b981;color:#fff;border-color:#10b981}
+.opt.wrong{background:#fee2e2;color:#b91c1c;border-color:#fca5a5;animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.refwrap img{height:60px;width:auto;max-width:110px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid #e2e8f0;cursor:zoom-in;transition:.2s;padding:2px}
+.refwrap img:hover{transform:scale(1.05);box-shadow:0 6px 16px rgba(0,0,0,.12)}
+.hint b{color:#b45309;background:#fef3c7;padding:0 4px;border-radius:4px}
+.badge{width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;background:#e2e8f0;color:#64748b;transition:.3s}
+.badge.on{background:linear-gradient(135deg,#10b981,#0ea5e9);color:#fff;box-shadow:0 4px 10px rgba(16,185,129,.35)}
+#summary{animation:fadein .6s}
+</style>
+</head>
+<body>
+<div class="max-w-7xl mx-auto px-3 sm:px-5 py-4 sm:py-6">
+  <!-- 顶部 -->
+  <header class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div class="flex items-center gap-3">
+      <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center text-white text-2xl shadow-lg">🧬</div>
+      <div>
+        <h1 class="text-xl sm:text-2xl font-extrabold text-slate-800 tracking-wide">细胞核功能实验探究（南京市第九中学：武超）</h1>
+        <p class="text-xs sm:text-sm text-slate-500">拖拽器材 → 点击「执行」观看动画 → 归纳实验结论</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 text-sm text-slate-600">
+      <span>实验进度</span>
+      <div id="badges" class="flex gap-1"></div>
+    </div>
+  </header>
+
+  <!-- 选项卡 -->
+  <nav id="tabs" class="flex gap-2 overflow-x-auto pb-2 mb-3"></nav>
+
+  <!-- 实验面板 -->
+  <main id="panels"></main>
+
+  <!-- 总结 -->
+  <section id="summary" class="hidden card mt-5 border-emerald-200" style="background:linear-gradient(135deg,#ecfdf5,#eff6ff)">
+    <h3 class="text-lg font-extrabold text-emerald-700 mb-2">🏆 四个实验全部完成 —— 归纳总结</h3>
+    <ul class="text-sm leading-7 text-slate-700 list-disc pl-5">
+      <li>美西螈核移植：<b>肤色的遗传</b>由细胞核控制 → 细胞核控制<b>遗传</b>。</li>
+      <li>蝾螈受精卵横缢：细胞核控制细胞的<b>分裂、分化</b>。</li>
+      <li>变形虫切割与核移植：细胞核控制变形虫的<b>生命活动</b>（运动、摄食、生长、分裂）。</li>
+      <li>伞藻嫁接与核移植：<b>伞帽形状</b>由细胞核控制 → 细胞核控制<b>形态建成</b>。</li>
+    </ul>
+    <p class="mt-3 font-bold text-slate-800 text-base">结论：细胞核是遗传信息库，是细胞<span class="text-emerald-600">代谢</span>和<span class="text-emerald-600">遗传</span>的控制中心。</p>
+  </section>
+
+  <footer class="text-center text-xs text-slate-400 mt-6">The-structure-and-function-of-the-cell-nucleus</footer>
+</div>
+
+<!-- 灯箱 -->
+<div id="lightbox" class="hidden fixed inset-0 bg-black/70 z-50 items-center justify-center p-4" onclick="this.classList.add('hidden');this.classList.remove('flex')">
+  <img id="lightimg" class="max-w-full max-h-full rounded-xl shadow-2xl bg-white" alt="">
+</div>
+
+<script>
+/* ========================= 基础配置 ========================= */
+const REPO='https://raw.githubusercontent.com/liuchenxuan/The-structure-and-function-of-the-cell-nucleus/main/';
+const IMG={
+  axBlack:'Experment1/图片2.png',   // 若与实际肤色不符，可点击面板里的「交换」按钮
+  axWhite:'Experment1/图片3.png',
+  e1:['Experment1/图片2.png','Experment1/图片3.png'],
+  e2:['Experment2/图片4.png','Experment2/图片5.png'],
+  e3:['Experment3/图片6.png'],
+  e4:['20261026210257','20261026210311','20261026210329','20261026210349','20261026210357','20261026210407','20261026210420','20261026210441','20261026210454'].map(n=>'Experment4/'+n+'.png')
+};
+const W=1000,H=560;
+const $=(s,r=document)=>r.querySelector(s);
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const svgData=s=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s);
+
+function imgTag(p,cls='',fb=''){
+  return `<img src="./${encodeURI(p)}" data-alts="${REPO+encodeURI(p)}" data-fb="${fb}" class="${cls}" onerror="imgErr(this)" draggable="false" alt="">`;
+}
+window.imgErr=function(img){
+  const alts=(img.dataset.alts||'').split('|').filter(Boolean);
+  if(alts.length){img.src=alts.shift();img.dataset.alts=alts.join('|');}
+  else if(img.dataset.fb){img.onerror=null;img.src=img.dataset.fb;img.dataset.fb='';}
+  else{img.onerror=null;const w=img.closest('.refwrap');if(w)w.remove();else img.style.display='none';}
+};
+
+/* ========================= SVG 素材 ========================= */
+const axSVG=(body,gill,eye='#111')=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120"><path d="M50 30 C70 30 72 60 60 95 C56 108 44 108 40 95 C28 60 30 30 50 30 Z" fill="${body}" stroke="#555" stroke-width="2"/><g stroke="#555" stroke-width="2" fill="${body}"><path d="M38 60 l-14 8 l4 4 l12 -8"/><path d="M62 60 l14 8 l-4 4 l-12 -8"/><path d="M42 88 l-12 10 l5 3 l9 -9"/><path d="M58 88 l12 10 l-5 3 l-9 -9"/></g><circle cx="50" cy="32" r="20" fill="${body}" stroke="#555" stroke-width="2"/><g stroke="${gill}" stroke-width="4" stroke-linecap="round"><path d="M32 22 l-12 -8"/><path d="M31 30 l-14 -2"/><path d="M32 38 l-12 6"/><path d="M68 22 l12 -8"/><path d="M69 30 l14 -2"/><path d="M68 38 l12 6"/></g><circle cx="42" cy="30" r="2.5" fill="${eye}"/><circle cx="58" cy="30" r="2.5" fill="${eye}"/><path d="M44 40 q6 4 12 0" fill="none" stroke="${eye}" stroke-width="1.5"/></svg>`;
+const SVG={
+  pipette:`<svg viewBox="0 0 60 140"><rect x="18" y="4" width="24" height="34" rx="12" fill="#bae6fd" stroke="#0369a1" stroke-width="2"/><rect x="26" y="36" width="8" height="70" fill="#e0f2fe" stroke="#0369a1" stroke-width="2"/><path d="M26 106 L30 136 L34 106 Z" fill="#bfdbfe" stroke="#0369a1" stroke-width="2"/></svg>`,
+  needle:`<svg viewBox="0 0 50 140"><rect x="17" y="4" width="16" height="62" rx="5" fill="#cbd5e1" stroke="#475569" stroke-width="2"/><rect x="21" y="12" width="8" height="40" fill="#94a3b8" opacity=".6"/><path d="M22 66 L25 136 L28 66 Z" fill="#94a3b8" stroke="#475569" stroke-width="1.5"/></svg>`,
+  scalpel:`<svg viewBox="0 0 120 70"><rect x="4" y="27" width="62" height="16" rx="7" fill="#475569"/><rect x="12" y="31" width="40" height="3" fill="#94a3b8" opacity=".7"/><path d="M60 23 L116 35 L60 47 Z" fill="#f1f5f9" stroke="#475569" stroke-width="2"/></svg>`,
+  hair:`<svg viewBox="0 0 120 80"><path d="M10 40 C30 4 90 4 110 40 C90 76 30 76 10 40 Z" fill="none" stroke="#3b2f1e" stroke-width="2.5"/><path d="M8 40 l-7 0 M112 40 l7 0" stroke="#3b2f1e" stroke-width="2.5"/></svg>`,
+  dish:`<svg viewBox="0 0 240 180"><ellipse cx="120" cy="104" rx="114" ry="62" fill="rgba(186,230,253,.55)" stroke="#60a5fa" stroke-width="3"/><ellipse cx="120" cy="94" rx="114" ry="62" fill="rgba(255,255,255,.25)" stroke="#93c5fd" stroke-width="2"/><path d="M6 94 v10 M234 94 v10" stroke="#60a5fa" stroke-width="3"/></svg>`
+};
+function clusterSVG(cx,cy,R,n,fill='#fde9c9',stroke='#b8864e'){
+  const rings={1:[[1,0]],2:[[2,.5]],4:[[4,.52]],8:[[1,0],[7,.64]],16:[[1,0],[5,.4],[10,.75]]}[n];
+  const r={1:R*.95,2:R*.5,4:R*.45,8:R*.33,16:R*.23}[n];
+  let s='';
+  rings.forEach(([cnt,fr])=>{for(let i=0;i<cnt;i++){const a=i/cnt*Math.PI*2-Math.PI/2;const x=(cx+Math.cos(a)*fr*R).toFixed(1),y=(cy+Math.sin(a)*fr*R).toFixed(1);
+    s+=`<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/><circle cx="${x}" cy="${y}" r="${r*.3}" fill="#7c3aed" opacity=".85"/>`;}});
+  return s;
+}
+const embryoSVG=(cx,cy)=>`<g transform="translate(${cx},${cy})"><path d="M-40,5 C-40,-30 20,-35 35,-10 C45,8 25,25 5,22 C-10,20 -20,35 -38,28 C-48,24 -45,12 -40,5 Z" fill="#d9b382" stroke="#8a5a2b" stroke-width="2"/><circle cx="22" cy="-8" r="4" fill="#3b2f1e"/><path d="M-5,0 C5,-12 15,-14 25,-6" fill="none" stroke="#8a5a2b" stroke-width="1.5"/></g>`;
+function eggPath(k){const h=Math.max(3,60*(1-k));return `M70,20 A60,60 0 1,0 70,140 C95,140 105,${80+h} 120,${80+h} C135,${80+h} 145,140 170,140 A60,60 0 1,0 170,20 C145,20 135,${80-h} 120,${80-h} C105,${80-h} 95,20 70,20 Z`;}
+const eggSVG=()=>`<svg viewBox="0 0 240 160" style="overflow:visible"><defs><radialGradient id="e2g" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#fff5e1"/><stop offset=".7" stop-color="#f3cf98"/><stop offset="1" stop-color="#e0ad6c"/></radialGradient></defs><path class="eggp" d="${eggPath(0)}" fill="url(#e2g)" stroke="#b8864e" stroke-width="3"/><g class="clL"></g><g class="clR"></g><text class="tL" x="70" y="156" text-anchor="middle" font-size="13" font-weight="700" fill="#166534" opacity="0">有核半</text><text class="tR" x="170" y="156" text-anchor="middle" font-size="13" font-weight="700" fill="#9f1239" opacity="0">无核半</text></svg>`;
+/* 伞藻 */
+const SP={M:{name:'地中海伞藻',fill:'#34a37a',stroke:'#1f6f52',shape:'伞形'},C:{name:'菊花形伞藻',fill:'#9bc53d',stroke:'#5c7f1a',shape:'菊花形'}};
+function capSVG(type){const {fill,stroke}=SP[type];
+  if(type==='M'){let ribs='';for(let i=0;i<12;i++){const a=i/12*Math.PI*2;ribs+=`<line x1="50" y1="30" x2="${(50+46*Math.cos(a)).toFixed(1)}" y2="${(30+22*Math.sin(a)).toFixed(1)}" stroke="${stroke}" stroke-width="1.5" opacity=".7"/>`;}
+    return `<svg viewBox="0 0 100 56" style="overflow:visible"><ellipse cx="50" cy="30" rx="46" ry="22" fill="${fill}" stroke="${stroke}" stroke-width="2"/>${ribs}<circle cx="50" cy="30" r="5" fill="${stroke}"/></svg>`;}
+  let p='';for(let i=0;i<12;i++){p+=`<ellipse cx="50" cy="12" rx="8" ry="16" fill="${fill}" stroke="${stroke}" stroke-width="1.5" transform="rotate(${i*30} 50 32)"/>`;}
+  return `<svg viewBox="0 0 100 64" style="overflow:visible">${p}<circle cx="50" cy="32" r="11" fill="${stroke}"/></svg>`;}
+const stalkSVG=sp=>`<svg viewBox="0 0 18 150"><path d="M4,0 L14,0 L16,150 L2,150 Z" fill="${SP[sp].fill}" stroke="${SP[sp].stroke}" stroke-width="1.5"/></svg>`;
+const rhizSVG=sp=>`<svg viewBox="0 0 100 60" style="overflow:visible"><g fill="none" stroke="${SP[sp].fill}" stroke-width="9" stroke-linecap="round"><path d="M50,8 C48,25 30,30 12,48"/><path d="M50,8 C52,25 70,30 88,48"/><path d="M50,8 C50,28 42,40 34,58"/><path d="M50,8 C50,28 58,40 66,58"/></g><circle cx="50" cy="12" r="13" fill="${SP[sp].fill}" stroke="${SP[sp].stroke}" stroke-width="1.5"/></svg>`;
+
+/* ========================= 舞台引擎（拖拽 + 动画） ========================= */
+class Stage{
+  constructor(root){this.root=root;this.world=$('.world',root);this.capEl=$('.cap',root);this.items=new Map();this.locked=false;this.onDrop=null;this.scale=1;this.fit();new ResizeObserver(()=>this.fit()).observe(root);}
+  fit(){const w=this.root.clientWidth;if(!w)return;this.scale=w/W;this.world.style.transform=`scale(${this.scale})`;}
+  add(cfg){
+    const el=document.createElement('div');el.className='item'+(cfg.cls?' '+cfg.cls:'')+(cfg.drag===false?' nodrag':'');el.dataset.id=cfg.id;
+    Object.assign(el.style,{left:cfg.x+'px',top:cfg.y+'px',width:cfg.w+'px',height:cfg.h+'px',zIndex:cfg.z??1});
+    el.innerHTML=cfg.html+`<span class="lbl">${cfg.label||''}</span>`;
+    const it={...cfg,el,followers:[],drag:cfg.drag!==false,z:cfg.z??1};
+    this.world.appendChild(el);this.items.set(cfg.id,it);this.bindDrag(it);return it;
+  }
+  get(id){return this.items.get(id);}
+  remove(it){if(!it)return;this.unfollow(it);it.followers.forEach(f=>this.unfollow(f));it.el.remove();this.items.delete(it.id);}
+  clear(){this.items.forEach(it=>it.el.remove());this.items.clear();this.caption('');}
+  follow(parent,child){this.unfollow(child);parent.followers.push(child);child.parent=parent;}
+  unfollow(child){if(child.parent){child.parent.followers=child.parent.followers.filter(f=>f!==child);child.parent=null;}}
+  setPos(it,x,y){it.x=x;it.y=y;it.el.style.left=x+'px';it.el.style.top=y+'px';}
+  bindDrag(it){
+    it.el.addEventListener('pointerdown',e=>{
+      if(this.locked||!it.drag)return;e.preventDefault();e.stopPropagation();
+      const el=it.el;try{el.setPointerCapture(e.pointerId);}catch(_){}
+      const sx=e.clientX,sy=e.clientY,ox=it.x,oy=it.y;const fol=it.followers.map(f=>({f,x:f.x,y:f.y}));
+      el.classList.add('dragging');el.style.zIndex=60;el.style.transition='';
+      const move=ev=>{const dx=(ev.clientX-sx)/this.scale,dy=(ev.clientY-sy)/this.scale;
+        this.setPos(it,clamp(ox+dx,-it.w*.4,W-it.w*.6),clamp(oy+dy,-it.h*.3,H-it.h*.5));fol.forEach(o=>this.setPos(o.f,o.x+dx,o.y+dy));this.onDrop&&this.onDrop(it,'move');};
+      const up=()=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);el.classList.remove('dragging');el.style.zIndex=it.z;this.onDrop&&this.onDrop(it,'drop');};
+      el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+    });
+  }
+  center(it){return {x:it.x+it.w/2,y:it.y+it.h/2};}
+  dist(a,b){const p=this.center(a),q=this.center(b);return Math.hypot(p.x-q.x,p.y-q.y);}
+  over(a,b,pad=0){if(!a||!b)return false;const c=this.center(a);return c.x>b.x-pad&&c.x<b.x+b.w+pad&&c.y>b.y-pad&&c.y<b.y+b.h+pad;}
+  moveTo(it,x,y,ms=800,withF=true){
+    const dx=x-it.x,dy=y-it.y;const ps=[];
+    if(withF)it.followers.forEach(f=>ps.push(this.moveTo(f,f.x+dx,f.y+dy,ms,false)));
+    ps.push(new Promise(res=>{it.el.style.transition=`left ${ms}ms ease-in-out, top ${ms}ms ease-in-out`;requestAnimationFrame(()=>{this.setPos(it,x,y);setTimeout(()=>{it.el.style.transition='';res();},ms+30);});}));
+    return Promise.all(ps);
+  }
+  resize(it,w,h,ms=600){return new Promise(res=>{it.el.style.transition=`width ${ms}ms ease, height ${ms}ms ease`;requestAnimationFrame(()=>{it.w=w;it.h=h;it.el.style.width=w+'px';it.el.style.height=h+'px';setTimeout(()=>{it.el.style.transition='';res();},ms+30);});});}
+  fade(it,to=0,ms=600){return new Promise(res=>{it.el.style.transition=`opacity ${ms}ms`;requestAnimationFrame(()=>{it.el.style.opacity=to;setTimeout(()=>{it.el.style.transition='';res();},ms+30);});});}
+  grow(it,ms=1200){it.el.style.transformOrigin='50% 100%';it.el.style.transform='scale(0)';return new Promise(res=>{requestAnimationFrame(()=>requestAnimationFrame(()=>{it.el.style.transition=`transform ${ms}ms cubic-bezier(.2,.8,.3,1.25)`;it.el.style.transform='scale(1)';setTimeout(()=>{it.el.style.transition='';res();},ms+30);}));});}
+  label(it,t){$('.lbl',it.el).textContent=t;}
+  caption(t){this.capEl.textContent=t;}
+}
+
+/* ========================= 实验框架 ========================= */
+const EXPS=[];
+class Experiment{
+  constructor(cfg){this.cfg=cfg;this.id=cfg.id;this.steps=cfg.steps;this.step=0;this.running=false;this.done=false;this.solved=false;this.build();}
+  build(){
+    const p=document.createElement('section');p.className='exp-panel hidden';p.id='panel-'+this.id;
+    p.innerHTML=`
+    <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+      <div class="max-w-3xl"><h2 class="text-lg sm:text-xl font-extrabold text-slate-800">${this.cfg.title}</h2><p class="text-xs sm:text-sm text-slate-600 mt-1 leading-6">${this.cfg.purpose}</p></div>
+      <div class="flex items-center gap-2 flex-wrap"><span class="text-xs text-slate-400">资料图：</span>${this.cfg.refs.map(r=>`<span class="refwrap">${imgTag(r,'ref')}</span>`).join('')}</div>
+    </div>
+    <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div><div class="stage"><div class="world"></div><div class="cap"></div></div></div>
+      <aside class="flex flex-col gap-3">
+        <div class="card">
+          <div class="flex items-center justify-between"><span class="text-xs font-bold text-slate-400">当前步骤</span><span class="stepno text-xs font-bold text-sky-600"></span></div>
+          <div class="hint text-sm leading-6 mt-1 text-slate-700"></div>
+          <div class="flex gap-2 mt-3"><button class="btn btn-run" disabled>▶ 执行</button><button class="btn btn-reset">↺ 重置</button></div>
+          ${this.cfg.extra||''}
+        </div>
+        <div class="card"><div class="font-bold text-sm text-slate-700 mb-1">🧪 实验记录</div><ol class="log"></ol></div>
+        <div class="card concl hidden" style="background:linear-gradient(135deg,#f0fdf4,#eff6ff)"></div>
+      </aside>
+    </div>`;
+    $('#panels').appendChild(p);
+    this.panel=p;this.S=new Stage($('.stage',p));this.hint=$('.hint',p);this.stepNo=$('.stepno',p);this.btnRun=$('.btn-run',p);this.logEl=$('.log',p);this.concl=$('.concl',p);
+    this.btnRun.onclick=()=>this.run();$('.btn-reset',p).onclick=()=>this.reset();
+    this.S.onDrop=()=>this.checkReady();
+    this.cfg.setup(this);this.renderStep();
+  }
+  caption(t){this.S.caption(t);}
+  log(t){const li=document.createElement('li');li.textContent=t;this.logEl.appendChild(li);this.logEl.scrollTop=this.logEl.scrollHeight;}
+  renderStep(){
+    this.S.items.forEach(it=>it.el.classList.remove('glow','hintdrag','hinttarget'));
+    const s=this.steps[this.step];if(!s)return;
+    this.stepNo.textContent=`${this.step+1} / ${this.steps.length}`;this.hint.innerHTML=s.hint;
+    [].concat(s.tool||[]).forEach(id=>{const it=this.S.get(id);it&&it.el.classList.add('hintdrag');});
+    [].concat(s.target||[]).forEach(id=>{const it=this.S.get(id);it&&it.el.classList.add('hinttarget');});
+    this.checkReady();
+  }
+  checkReady(){
+    if(this.running||this.done)return;const s=this.steps[this.step];if(!s)return;
+    const ok=s.check?!!s.check(this):true;this.ready=ok;this.btnRun.disabled=!ok;this.btnRun.classList.toggle('ready',ok);
+    [].concat(s.target||[]).forEach(id=>{const t=this.S.get(id);t&&t.el.classList.toggle('glow',ok);});
+  }
+  async run(){
+    if(!this.ready||this.running||this.done)return;const s=this.steps[this.step];
+    this.running=true;this.S.locked=true;this.btnRun.disabled=true;this.btnRun.classList.remove('ready');this.btnRun.textContent='⏳ 执行中…';
+    this.S.items.forEach(it=>it.el.classList.remove('glow','hintdrag','hinttarget'));
+    try{await s.run(this);}catch(e){console.error(e);}
+    if(s.log)this.log(s.log);
+    this.step++;this.running=false;this.S.locked=false;this.btnRun.textContent='▶ 执行';
+    if(this.step>=this.steps.length)this.finish();else this.renderStep();
+  }
+  finish(){
+    this.done=true;this.btnRun.disabled=true;this.stepNo.textContent='完成';
+    this.hint.innerHTML='🎉 所有步骤已完成！请在下方选择正确答案，填写实验结论。';
+    const c=this.cfg.conclusion,box=this.concl;box.classList.remove('hidden');
+    box.innerHTML=`<div class="font-extrabold text-emerald-700 mb-1">📌 实验结论</div><p class="text-sm leading-8 text-slate-800 font-medium">${c.text.replace('__','<span class="blank">？</span>')}</p><div class="flex flex-wrap gap-2 mt-2">${c.options.map((o,i)=>`<button class="opt" data-i="${i}">${o}</button>`).join('')}</div><div class="note hidden text-xs text-slate-600 mt-3 leading-6"></div>`;
+    box.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{
+      if(+b.dataset.i===c.answer){const bl=$('.blank',box);bl.textContent=c.options[c.answer];bl.classList.add('ok');b.classList.add('right');box.querySelectorAll('.opt').forEach(x=>x.disabled=true);const n=$('.note',box);n.classList.remove('hidden');n.innerHTML='✅ 回答正确！'+c.note;this.solved=true;updateProgress();}
+      else{b.classList.add('wrong');setTimeout(()=>b.classList.remove('wrong'),600);}
+    });
+    box.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+  reset(){this.S.clear();this.step=0;this.running=false;this.done=false;this.ready=false;this.S.locked=false;this.logEl.innerHTML='';this.concl.classList.add('hidden');this.concl.innerHTML='';this.btnRun.textContent='▶ 执行';this.cfg.setup(this);this.renderStep();}
+}
+
+/* ========================= 实验一：美西螈核移植 ========================= */
+const axB_fb=()=>svgData(axSVG('#2b2b2b','#c2185b','#fff'));
+const axW_fb=()=>svgData(axSVG('#fbe9e7','#f06292'));
+EXPS.push({
+  id:1,short:'美西螈核移植',title:'实验一：美西螈核移植实验',
+  purpose:'黑色美西螈与白色美西螈肤色不同。将黑色美西螈胚胎细胞的细胞核移植到白色美西螈的去核卵细胞中，观察发育出的美西螈的肤色，探究肤色由细胞核还是细胞质决定。',
+  refs:IMG.e1,
+  extra:`<button class="text-xs text-sky-600 underline mt-3" onclick="swapAx()">🔁 两张美西螈照片与肤色标注不符？点击交换</button>`,
+  setup(ex){const S=ex.S;
+    S.add({id:'axB',x:30,y:30,w:110,h:130,z:2,label:'黑色美西螈（供核）',html:imgTag(IMG.axBlack,'ph',axB_fb())});
+    S.add({id:'axW',x:860,y:30,w:110,h:130,z:2,label:'白色美西螈（供卵细胞）',html:imgTag(IMG.axWhite,'ph',axW_fb())});
+    const c=S.add({id:'cellB',x:60,y:260,w:110,h:110,label:'黑螈胚胎细胞',html:'<div class="cell"></div>'});
+    const nB=S.add({id:'nucB',x:c.x+37,y:c.y+37,w:36,h:36,z:3,drag:false,html:'<div class="nuc nuc-dark"></div>'});S.follow(c,nB);
+    const e=S.add({id:'egg',x:830,y:250,w:130,h:130,label:'白螈卵细胞',html:'<div class="cell"></div>'});
+    const nW=S.add({id:'nucW',x:e.x+45,y:e.y+45,w:40,h:40,z:3,drag:false,html:'<div class="nuc nuc-light"></div>'});S.follow(e,nW);
+    S.add({id:'pip',x:380,y:40,w:60,h:140,z:5,label:'微型吸管（取核）',html:SVG.pipette});
+    S.add({id:'ndl',x:560,y:40,w:50,h:140,z:5,label:'去核针（去核）',html:SVG.needle});
+    S.add({id:'dish',x:380,y:330,w:240,h:180,z:0,label:'培养皿（培养发育）',html:SVG.dish});
+  },
+  steps:[
+    {hint:'① <b>取核</b>：把【微型吸管】拖到<b>黑色美西螈的胚胎细胞</b>上，点击「执行」吸出细胞核。',tool:'pip',target:'cellB',
+     check:ex=>ex.S.over(ex.S.get('pip'),ex.S.get('cellB'),30),
+     async run(ex){const S=ex.S,pip=S.get('pip'),c=S.get('cellB'),n=S.get('nucB');
+       ex.caption('微型吸管刺入黑色美西螈胚胎细胞…');await S.moveTo(pip,c.x+c.w/2-30,c.y+c.h/2-135,700);await wait(200);
+       ex.caption('吸出细胞核（供体核）');S.unfollow(n);n.el.style.zIndex=6;await S.moveTo(n,pip.x+12,pip.y+3,900);S.follow(pip,n);
+       c.el.classList.add('empty');S.label(c,'黑螈细胞（已取核）');await S.moveTo(pip,380,40,600);ex.caption('');},
+     log:'取核：用微型吸管吸出黑色美西螈胚胎细胞的细胞核（供体核）。'},
+    {hint:'② <b>去核</b>：把【去核针】拖到<b>白色美西螈的卵细胞</b>上，点击「执行」去除其细胞核。',tool:'ndl',target:'egg',
+     check:ex=>ex.S.over(ex.S.get('ndl'),ex.S.get('egg'),30),
+     async run(ex){const S=ex.S,nd=S.get('ndl'),e=S.get('egg'),n=S.get('nucW');
+       ex.caption('去核针刺入白色美西螈卵细胞…');await S.moveTo(nd,e.x+e.w/2-25,e.y+e.h/2-135,700);await wait(200);
+       ex.caption('挑出并弃去卵细胞的细胞核');S.unfollow(n);n.el.style.zIndex=6;await S.moveTo(n,e.x-70,e.y-40,800);await S.fade(n,0,500);S.remove(n);
+       e.el.classList.add('empty');S.label(e,'白螈去核卵细胞');await S.moveTo(nd,560,40,600);ex.caption('');},
+     log:'去核：用去核针除去白色美西螈卵细胞的细胞核，得到去核卵细胞（只保留细胞质）。'},
+    {hint:'③ <b>重组</b>：把【装有黑色细胞核的吸管】拖到<b>白色去核卵细胞</b>上，点击「执行」注入细胞核。',tool:'pip',target:'egg',
+     check:ex=>ex.S.over(ex.S.get('nucB'),ex.S.get('egg'),40),
+     async run(ex){const S=ex.S,pip=S.get('pip'),e=S.get('egg'),n=S.get('nucB');
+       ex.caption('吸管对准去核卵细胞…');await S.moveTo(pip,e.x+e.w/2-30,e.y+e.h/2-135,600);
+       ex.caption('注入黑色美西螈的细胞核');S.unfollow(n);await S.moveTo(n,e.x+47,e.y+47,900);S.follow(e,n);
+       e.el.classList.remove('empty');e.el.classList.add('recomb');S.label(e,'重组细胞（黑螈核 + 白螈卵细胞质）');
+       await S.moveTo(pip,380,40,600);ex.caption('重组细胞构建完成！');},
+     log:'重组：黑色美西螈的细胞核 + 白色美西螈的去核卵细胞 → 重组细胞。'},
+    {hint:'④ <b>发育</b>：把【重组细胞】拖入<b>培养皿</b>，点击「执行」观察其发育结果。',tool:'egg',target:'dish',
+     check:ex=>ex.S.over(ex.S.get('egg'),ex.S.get('dish'),30),
+     async run(ex){const S=ex.S,e=S.get('egg'),d=S.get('dish'),n=S.get('nucB');
+       ex.caption('重组细胞放入培养皿，开始培养…');e.el.style.zIndex=4;await S.moveTo(e,d.x+120-65,d.y+100-72,700);
+       S.unfollow(n);S.remove(n);e.el.classList.remove('recomb');const body=$('.cell',e.el);body.classList.add('dividing');
+       for(const k of [2,4,8,16]){ex.caption(`细胞分裂：${k} 细胞期`);body.innerHTML=`<svg viewBox="0 0 130 130">${clusterSVG(65,65,60,k)}</svg>`;await wait(800);}
+       ex.caption('胚胎继续分裂、分化…');S.label(e,'胚胎');await wait(700);await S.fade(e,0,600);S.remove(e);
+       const baby=S.add({id:'baby',x:d.x+70,y:d.y+22,w:100,h:120,z:6,label:'发育成的美西螈：黑色！',html:imgTag(IMG.axBlack,'ph',axB_fb())});
+       await S.grow(baby,1500);baby.el.classList.add('glow');ex.caption('结果：重组细胞发育成黑色美西螈（与供核者肤色一致）');},
+     log:'发育：重组细胞经分裂、分化，发育成黑色美西螈——与提供细胞核的个体肤色一致。'}
+  ],
+  conclusion:{text:'美西螈肤色的遗传由（__）控制。',options:['细胞质','细胞核','细胞膜'],answer:1,note:'重组细胞的细胞质来自白色美西螈，细胞核来自黑色美西螈，发育出的个体却是黑色的，说明<b>肤色这一性状的遗传由细胞核控制</b>。'}
+});
+window.swapAx=function(){[IMG.axBlack,IMG.axWhite]=[IMG.axWhite,IMG.axBlack];const ex=EXPS[0].inst;ex&&ex.reset();};
+
+/* ========================= 实验二：蝾螈受精卵横缢 ========================= */
+function animEgg(path,from,to,ms,cb){return new Promise(res=>{const t0=performance.now();(function f(t){const p=Math.min(1,(t-t0)/ms);const e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;const k=from+(to-from)*e;path.setAttribute('d',eggPath(k));cb&&cb(k);if(p<1)requestAnimationFrame(f);else res();})(t0);});}
+EXPS.push({
+  id:2,short:'蝾螈受精卵横缢',title:'实验二：蝾螈受精卵横缢实验',
+  purpose:'用头发丝把蝾螈受精卵横缢成有核与无核两部分（第一部分），观察二者能否分裂；再将一个细胞核挤入无核的一半（第二部分），观察其发育情况。探究细胞核与细胞分裂、分化的关系。',
+  refs:IMG.e2,
+  setup(ex){const S=ex.S;
+    const e=S.add({id:'egg',x:380,y:200,w:240,h:160,label:'蝾螈受精卵',html:eggSVG()});
+    const n=S.add({id:'nuc',x:e.x+70-15,y:e.y+80-15,w:30,h:30,z:3,drag:false,html:'<div class="nuc nuc-light"></div>'});S.follow(e,n);
+    S.add({id:'hair',x:120,y:60,w:120,h:80,z:5,label:'头发丝（用于结扎）',html:SVG.hair});
+    S.add({id:'note',x:700,y:420,w:260,h:100,z:0,drag:false,html:'<div class="text-[13px] leading-6 text-slate-600 bg-white/70 rounded-xl p-3 border border-slate-200">提示：横缢时要使细胞核<b>只位于一侧</b>，两部分之间留下<b>细小的细胞质桥</b>。</div>'});
+  },
+  steps:[
+    {hint:'① <b>横缢</b>（第一部分）：把【头发丝】拖到<b>受精卵</b>中部，点击「执行」把受精卵结扎成有核和无核两部分。',tool:'hair',target:'egg',
+     check:ex=>ex.S.over(ex.S.get('hair'),ex.S.get('egg'),20),
+     async run(ex){const S=ex.S,h=S.get('hair'),e=S.get('egg');
+       ex.caption('用头发丝套住受精卵中部…');await S.moveTo(h,e.x+60,e.y+40,600);const inner=h.el.firstElementChild;inner.style.transition='transform .2s';inner.style.transform='rotate(90deg)';await wait(300);
+       ex.caption('逐渐勒紧，受精卵被横缢成两半（中间保留细胞质桥）');
+       await animEgg($('.eggp',e.el),0,0.92,1500,k=>{const hh=Math.max(3,60*(1-k));inner.style.transform=`rotate(90deg) scaleY(${((2*hh+14)/80).toFixed(3)})`;});
+       h.drag=false;h.el.classList.add('nodrag');S.follow(e,h);$('.tL',e.el).setAttribute('opacity',1);$('.tR',e.el).setAttribute('opacity',1);
+       S.label(e,'横缢后的受精卵');ex.caption('左侧：有核半　右侧：无核半');},
+     log:'横缢：受精卵被结扎成有细胞核的一半和无细胞核的一半，中间仅有细胞质桥相连。'},
+    {hint:'② <b>观察分裂</b>：点击「执行」，观察两部分的发育情况。',
+     async run(ex){const S=ex.S,e=S.get('egg'),n=S.get('nuc');
+       ex.caption('培养观察中…');S.unfollow(n);await S.fade(n,0,500);S.remove(n);
+       const L=$('.clL',e.el);for(const k of [2,4,8,16]){ex.caption(`有核半分裂：${k} 细胞期；无核半不分裂`);L.innerHTML=clusterSVG(70,80,58,k);await wait(800);}
+       $('.tL',e.el).textContent='有核半：持续分裂';$('.tR',e.el).textContent='无核半：停止分裂';
+       const t=S.add({id:'nucT',x:e.x+57,y:e.y+67,w:26,h:26,z:6,label:'一个细胞核（取自有核半）',html:'<div class="nuc nuc-light"></div>'});
+       await S.moveTo(t,e.x+10,e.y-70,800);ex.caption('有核半分裂到 16~32 细胞期，可以取其中一个细胞核进行下一步');},
+     log:'观察：有核的一半不断分裂；无核的一半停止分裂。'},
+    {hint:'③ <b>挤入细胞核</b>（第二部分）：把【一个细胞核】拖到<b>无核的右半边</b>，点击「执行」观察。',tool:'nucT',target:'egg',
+     check:ex=>{const S=ex.S,t=S.get('nucT'),e=S.get('egg');return S.over(t,e,10)&&S.center(t).x>e.x+125;},
+     async run(ex){const S=ex.S,e=S.get('egg'),t=S.get('nucT');
+       ex.caption('将一个细胞核经细胞质桥挤入无核的一半，再重新扎紧');await S.moveTo(t,e.x+170-13,e.y+80-13,900);await S.fade(t,0,400);S.remove(t);
+       const R=$('.clR',e.el);for(const k of [1,2,4,8,16]){ex.caption(`获得细胞核后，右半开始分裂：${k} 细胞期`);R.innerHTML=clusterSVG(170,80,58,k);await wait(750);}
+       ex.caption('两部分都继续分裂、分化…');await wait(500);$('.clL',e.el).innerHTML=embryoSVG(70,80);$('.clR',e.el).innerHTML=embryoSVG(170,80);
+       $('.tL',e.el).textContent='发育成胚胎';$('.tR',e.el).textContent='也发育成胚胎';$('.tR',e.el).setAttribute('fill','#166534');S.label(e,'两部分都发育为胚胎');ex.caption('结果：获得细胞核的一半恢复分裂并发育成胚胎');},
+     log:'挤入细胞核：原本无核的一半获得细胞核后开始分裂，并和另一半一样发育成胚胎。'}
+  ],
+  conclusion:{text:'细胞核可以控制蝾螈细胞的（__）。',options:['呼吸、运动','形状、大小','分裂、分化'],answer:2,note:'无核部分不能分裂，获得细胞核后立即恢复分裂并分化成胚胎，说明<b>细胞核控制着细胞的分裂和分化</b>。'}
+});
+
+/* ========================= 实验三：变形虫切割与核移植 ========================= */
+EXPS.push({
+  id:3,short:'变形虫切割·核移植',title:'实验三：变形虫切割与核移植实验',
+  purpose:'把变形虫切成有核与无核两部分，观察它们的运动、摄食等生命活动；再把一个细胞核移植到无核部分中，观察其能否恢复生命活动。',
+  refs:IMG.e3,
+  setup(ex){const S=ex.S;
+    const a=S.add({id:'amo',x:330,y:130,w:260,h:200,label:'变形虫',html:'<div class="blob"></div>'});
+    const n=S.add({id:'nucA',x:a.x+113,y:a.y+83,w:34,h:34,z:3,drag:false,html:'<div class="nuc nuc-amo"></div>'});S.follow(a,n);
+    S.add({id:'knife',x:110,y:50,w:120,h:70,z:5,label:'解剖刀',html:SVG.scalpel});
+    [['f1',820,120,'食物颗粒'],['f2',870,180,''],['f3',820,240,'']].forEach(([id,x,y,l])=>S.add({id,x,y,w:22,h:22,z:4,label:l,html:'<div class="food"></div>'}));
+    const d=S.add({id:'don',x:40,y:380,w:180,h:140,label:'另一只变形虫（供核）',html:'<div class="blob"></div>'});
+    const nd=S.add({id:'nucD',x:d.x+76,y:d.y+56,w:28,h:28,z:3,drag:false,html:'<div class="nuc nuc-amo"></div>'});S.follow(d,nd);
+    S.add({id:'pip',x:880,y:380,w:60,h:140,z:5,label:'微型吸管',html:SVG.pipette});
+  },
+  steps:[
+    {hint:'① <b>切割</b>：把【解剖刀】拖到<b>变形虫</b>上，点击「执行」将其切成两半。',tool:'knife',target:'amo',
+     check:ex=>ex.S.over(ex.S.get('knife'),ex.S.get('amo'),20),
+     async run(ex){const S=ex.S,k=S.get('knife'),a=S.get('amo'),n=S.get('nucA');
+       ex.caption('解剖刀对准变形虫中部…');k.el.style.zIndex=10;await S.moveTo(k,a.x+a.w/2-60,a.y-60,500);ex.caption('切割！');await S.moveTo(k,a.x+a.w/2-60,a.y+a.h-30,600);
+       const r=S.add({id:'amoR',x:a.x+135,y:a.y,w:125,h:200,label:'无核部分',html:'<div class="blob"></div>'});r.el.style.opacity=0;
+       await S.resize(a,125,200,500);await S.fade(r,1,300);await S.moveTo(n,a.x+45,a.y+83,500);
+       await Promise.all([S.moveTo(a,a.x-25,a.y,600),S.moveTo(r,r.x+25,r.y,600)]);S.label(a,'有核部分');
+       k.el.style.zIndex=5;await S.moveTo(k,110,50,500);ex.caption('变形虫被切成有核部分与无核部分');},
+     log:'切割：变形虫被分成有细胞核的一部分和无细胞核的一部分。'},
+    {hint:'② <b>投喂观察</b>：把【食物颗粒】分别拖到<b>有核部分</b>和<b>无核部分</b>旁边（各至少一粒），点击「执行」观察运动与摄食。',tool:['f1','f2','f3'],target:['amo','amoR'],
+     check:ex=>{const S=ex.S,a=S.get('amo'),r=S.get('amoR');const fs=['f1','f2','f3'].map(i=>S.get(i)).filter(Boolean);return fs.some(f=>S.dist(f,a)<150)&&fs.some(f=>S.dist(f,r)<150&&S.dist(f,r)<S.dist(f,a));},
+     async run(ex){const S=ex.S,a=S.get('amo'),r=S.get('amoR');const fs=['f1','f2','f3'].map(i=>S.get(i)).filter(Boolean);
+       const nearA=fs.filter(f=>S.dist(f,a)<150&&S.dist(f,a)<=S.dist(f,r));
+       ex.caption('有核部分伸出伪足，向食物移动并包裹摄食…');
+       for(const f of nearA){const c=S.center(f),ac=S.center(a);await S.moveTo(a,a.x+(c.x-ac.x)*.4,a.y+(c.y-ac.y)*.4,900);const ac2=S.center(a);await S.moveTo(f,ac2.x-11,ac2.y-11,500);await S.fade(f,0,400);S.remove(f);}
+       await S.resize(a,a.w*1.12,a.h*1.12,700);S.label(a,'有核部分：运动、摄食、生长正常');
+       ex.caption('无核部分：既不运动，也不摄食…');S.label(r,'无核部分：不运动、不摄食');await wait(1000);r.el.classList.add('dying');await wait(1300);S.label(r,'无核部分：逐渐衰亡');ex.caption('无核部分生命活动停止，逐渐衰亡');},
+     log:'观察：有核部分能运动、摄食、生长；无核部分不运动、不摄食，逐渐死亡。'},
+    {hint:'③ <b>取核</b>：把【微型吸管】拖到<b>另一只变形虫</b>上，点击「执行」吸出它的细胞核。',tool:'pip',target:'don',
+     check:ex=>ex.S.over(ex.S.get('pip'),ex.S.get('don'),30),
+     async run(ex){const S=ex.S,p=S.get('pip'),d=S.get('don'),n=S.get('nucD');
+       ex.caption('吸管刺入供体变形虫…');await S.moveTo(p,d.x+d.w/2-30,d.y+d.h/2-135,700);ex.caption('吸出细胞核');S.unfollow(n);n.el.style.zIndex=6;await S.moveTo(n,p.x+16,p.y+7,800);S.follow(p,n);
+       d.el.classList.add('dying');S.label(d,'供体变形虫（已取核）');await S.moveTo(p,880,380,500);ex.caption('');},
+     log:'取核：用微型吸管从另一只变形虫中吸出细胞核。'},
+    {hint:'④ <b>核移植</b>：把【装有细胞核的吸管】拖到<b>无核部分</b>上，点击「执行」植入细胞核并观察。',tool:'pip',target:'amoR',
+     check:ex=>ex.S.over(ex.S.get('nucD'),ex.S.get('amoR'),40),
+     async run(ex){const S=ex.S,p=S.get('pip'),r=S.get('amoR'),n=S.get('nucD');
+       ex.caption('向无核部分植入细胞核…');await S.moveTo(p,r.x+r.w/2-30,r.y+r.h/2-135,600);S.unfollow(n);await S.moveTo(n,r.x+r.w/2-14,r.y+r.h/2-14,800);S.follow(r,n);
+       r.el.classList.remove('dying');r.el.classList.add('revived');S.label(r,'植入细胞核：恢复活力');await S.moveTo(p,880,380,500);await wait(500);
+       let f=['f1','f2','f3'].map(i=>S.get(i)).find(Boolean);if(!f)f=S.add({id:'f9',x:r.x+r.w+60,y:r.y+90,w:22,h:22,z:4,label:'食物颗粒',html:'<div class="food"></div>'});
+       ex.caption('恢复运动，伸出伪足摄食…');const c=S.center(f),rc=S.center(r);await S.moveTo(r,r.x+(c.x-rc.x)*.4,r.y+(c.y-rc.y)*.4,900);const rc2=S.center(r);await S.moveTo(f,rc2.x-11,rc2.y-11,500);await S.fade(f,0,400);S.remove(f);
+       S.label(r,'恢复运动、摄食、生长等生命活动');ex.caption('结果：无核部分植入细胞核后，生命活动恢复正常');},
+     log:'核移植：无核部分重新获得细胞核后，运动、摄食等生命活动恢复正常。'}
+  ],
+  conclusion:{text:'细胞核可以控制变形虫的（__）。',options:['生命活动','颜色','体积'],answer:0,note:'无核部分不能运动、摄食并逐渐死亡；重新植入细胞核后又恢复正常，说明<b>细胞核控制着变形虫的生命活动</b>。'}
+});
+
+/* ========================= 实验四：伞藻嫁接与核移植 ========================= */
+function plant(S,sp,x,o={}){const info=SP[sp];const r={};
+  r.rhiz=S.add({id:sp+'Rhiz',x,y:258,w:100,h:60,z:1,label:o.label||info.name+'假根（含细胞核）',html:rhizSVG(sp)});
+  if(o.stalk!==false){r.stalk=S.add({id:sp+'Stalk',x:x+41,y:120,w:18,h:150,z:2,html:stalkSVG(sp)});S.follow(r.rhiz,r.stalk);}
+  if(o.cap!==false){r.cap=S.add({id:sp+'Cap',x,y:70,w:100,h:56,z:3,label:info.name+'：'+info.shape+'伞帽',html:capSVG(sp)});S.follow(r.rhiz,r.cap);}
+  if(o.nuc!==false){r.nuc=S.add({id:sp+'Nuc',x:x+42,y:262,w:16,h:16,z:4,drag:false,html:'<div class="nuc nuc-dark"></div>'});S.follow(r.rhiz,r.nuc);}
+  return r;}
+const stalkOn=(S,st,rz)=>{if(!st||!rz)return false;const bx=st.x+st.w/2,by=st.y+st.h;return bx>rz.x-20&&bx<rz.x+rz.w+20&&by>rz.y-45&&by<rz.y+rz.h+25;};
+async function cutPlant(ex,sp,capTo,stalkTo){const S=ex.S,k=S.get('knife'),cap=S.get(sp+'Cap'),st=S.get(sp+'Stalk'),rz=S.get(sp+'Rhiz'),nm=SP[sp].name;
+  k.el.style.zIndex=10;ex.caption(`切去${nm}的伞帽…`);await S.moveTo(k,cap.x+105,cap.y+40,500);await S.moveTo(k,cap.x-45,cap.y+40,500);
+  S.unfollow(cap);cap.el.classList.add('dim');S.label(cap,`${nm}伞帽（已切除）`);await S.moveTo(cap,capTo[0],capTo[1],700);
+  ex.caption('将伞柄与假根分开…');await S.moveTo(k,rz.x+105,rz.y-2,500);await S.moveTo(k,rz.x-45,rz.y-2,500);
+  S.unfollow(st);S.label(st,`${nm}伞柄`);await S.moveTo(st,stalkTo[0],stalkTo[1],700);S.label(rz,`${nm}假根（含核）`);
+  k.el.style.zIndex=5;await S.moveTo(k,440,50,500);ex.caption('');}
+async function graft(ex,stalkSp,rhizSp,capType){const S=ex.S,st=S.get(stalkSp+'Stalk'),rz=S.get(rhizSp+'Rhiz');
+  ex.caption(`把${SP[stalkSp].name}伞柄嫁接到${SP[rhizSp].name}假根上…`);await S.moveTo(st,rz.x+41,rz.y-138,700);S.follow(rz,st);S.label(st,'');
+  S.label(rz,`${SP[rhizSp].name}假根（含核）+ ${SP[stalkSp].name}伞柄`);await wait(400);ex.caption('培养一段时间，伞柄顶端长出新的伞帽…');
+  const c=S.add({id:'new'+rhizSp,x:st.x+9-50,y:st.y-50,w:100,h:56,z:3,label:`长出${SP[capType].shape}伞帽！`,html:capSVG(capType)});S.follow(rz,c);await S.grow(c,1400);c.el.classList.add('glow');
+  ex.caption(`结果：长出的伞帽为${SP[capType].shape}（与假根中细胞核的种类一致）`);}
+function setupPart2(ex){const S=ex.S;S.clear();
+  S.add({id:'banner',x:300,y:8,w:400,h:32,z:0,drag:false,html:'<div class="banner">第二部分：核移植实验</div>'});
+  plant(S,'M',150,{cap:false,label:'地中海伞藻（供核，已切去伞帽）'});plant(S,'C',750,{cap:false,label:'菊花形伞藻（受体，已切去伞帽）'});
+  S.add({id:'ndl',x:420,y:70,w:50,h:140,z:5,label:'去核针',html:SVG.needle});S.add({id:'pip',x:540,y:70,w:60,h:140,z:5,label:'微型吸管',html:SVG.pipette});}
+EXPS.push({
+  id:4,short:'伞藻嫁接·核移植',title:'实验四：伞藻嫁接与核移植实验',
+  purpose:'伞藻是单细胞藻类，由伞帽、伞柄和假根组成，细胞核位于假根中。地中海伞藻的伞帽为伞形，菊花形伞藻的伞帽为菊花形。第一部分：切去伞帽后把伞柄嫁接到另一种伞藻的假根上；第二部分：把细胞核移植到另一种去核的伞藻中。观察长出的伞帽形状。',
+  refs:IMG.e4,
+  setup(ex){const S=ex.S;plant(S,'M',150);plant(S,'C',750);S.add({id:'knife',x:440,y:50,w:120,h:70,z:5,label:'刀片',html:SVG.scalpel});
+    S.add({id:'banner',x:360,y:300,w:280,h:32,z:0,drag:false,html:'<div class="banner">第一部分：嫁接实验</div>'});},
+  steps:[
+    {hint:'① <b>切除</b>（第一部分·嫁接）：把【刀片】拖到<b>地中海伞藻</b>上，点击「执行」切去伞帽并把伞柄与假根分开。',tool:'knife',target:['MCap','MStalk'],
+     check:ex=>ex.S.over(ex.S.get('knife'),ex.S.get('MStalk'),60)||ex.S.over(ex.S.get('knife'),ex.S.get('MCap'),30),
+     run:ex=>cutPlant(ex,'M',[30,430],[60,110]),log:'切除：切去地中海伞藻的伞帽，并把伞柄与含核的假根分开。'},
+    {hint:'② 把【刀片】拖到<b>菊花形伞藻</b>上，点击「执行」同样切去伞帽并分开伞柄与假根。',tool:'knife',target:['CCap','CStalk'],
+     check:ex=>ex.S.over(ex.S.get('knife'),ex.S.get('CStalk'),60)||ex.S.over(ex.S.get('knife'),ex.S.get('CCap'),30),
+     run:ex=>cutPlant(ex,'C',[870,430],[920,110]),log:'切除：切去菊花形伞藻的伞帽，并把伞柄与含核的假根分开。'},
+    {hint:'③ <b>嫁接</b>：把【地中海伞柄】拖到<b>菊花形伞藻的假根</b>上（柄底对准假根），点击「执行」观察长出的伞帽。',tool:'MStalk',target:'CRhiz',
+     check:ex=>stalkOn(ex.S,ex.S.get('MStalk'),ex.S.get('CRhiz')),
+     run:ex=>graft(ex,'M','C','C'),log:'嫁接①：地中海伞柄 + 菊花形假根（含核）→ 长出菊花形伞帽。'},
+    {hint:'④ 把【菊花形伞柄】拖到<b>地中海伞藻的假根</b>上，点击「执行」观察长出的伞帽。',tool:'CStalk',target:'MRhiz',
+     check:ex=>stalkOn(ex.S,ex.S.get('CStalk'),ex.S.get('MRhiz')),
+     async run(ex){await graft(ex,'C','M','M');await wait(1800);ex.caption('第一部分完成 → 进入第二部分：核移植');await wait(1200);setupPart2(ex);},
+     log:'嫁接②：菊花形伞柄 + 地中海假根（含核）→ 长出伞形伞帽。伞帽形状与假根一致，但假根中既有细胞核也有细胞质，还需进一步实验。'},
+    {hint:'⑤ <b>去核</b>（第二部分·核移植）：把【去核针】拖到<b>菊花形伞藻的假根</b>上，点击「执行」去除其细胞核。',tool:'ndl',target:'CRhiz',
+     check:ex=>ex.S.over(ex.S.get('ndl'),ex.S.get('CRhiz'),30),
+     async run(ex){const S=ex.S,nd=S.get('ndl'),rz=S.get('CRhiz'),n=S.get('CNuc');
+       ex.caption('去核针刺入菊花形伞藻的假根…');nd.el.style.zIndex=10;await S.moveTo(nd,rz.x+25,rz.y+12-135,700);ex.caption('挑出并弃去细胞核');
+       S.unfollow(n);n.el.style.zIndex=11;await S.moveTo(n,rz.x+150,rz.y-50,700);await S.fade(n,0,400);S.remove(n);S.label(rz,'菊花形伞藻（已去核）');
+       nd.el.style.zIndex=5;await S.moveTo(nd,420,70,500);ex.caption('');},
+     log:'去核：除去菊花形伞藻假根中的细胞核。'},
+    {hint:'⑥ <b>取核</b>：把【微型吸管】拖到<b>地中海伞藻的假根</b>上，点击「执行」吸出它的细胞核。',tool:'pip',target:'MRhiz',
+     check:ex=>ex.S.over(ex.S.get('pip'),ex.S.get('MRhiz'),30),
+     async run(ex){const S=ex.S,p=S.get('pip'),rz=S.get('MRhiz'),n=S.get('MNuc');
+       ex.caption('吸管刺入地中海伞藻的假根…');p.el.style.zIndex=10;await S.moveTo(p,rz.x+20,rz.y+12-135,700);ex.caption('吸出细胞核');
+       S.unfollow(n);n.el.style.zIndex=11;await S.moveTo(n,p.x+22,p.y+12,800);S.follow(p,n);S.label(rz,'地中海伞藻（已取核）');
+       p.el.style.zIndex=5;await S.moveTo(p,540,70,500);ex.caption('');},
+     log:'取核：吸出地中海伞藻假根中的细胞核。'},
+    {hint:'⑦ <b>核移植</b>：把【装有地中海细胞核的吸管】拖到<b>去核的菊花形伞藻假根</b>上，点击「执行」观察长出的伞帽。',tool:'pip',target:'CRhiz',
+     check:ex=>ex.S.over(ex.S.get('MNuc'),ex.S.get('CRhiz'),40),
+     async run(ex){const S=ex.S,p=S.get('pip'),rz=S.get('CRhiz'),st=S.get('CStalk'),n=S.get('MNuc');
+       ex.caption('把地中海伞藻的细胞核植入去核的菊花形伞藻…');p.el.style.zIndex=10;await S.moveTo(p,rz.x+20,rz.y+12-135,600);
+       S.unfollow(n);await S.moveTo(n,rz.x+42,rz.y+4,800);S.follow(rz,n);n.el.style.zIndex=4;S.label(rz,'菊花形伞藻 + 地中海细胞核');
+       p.el.style.zIndex=5;await S.moveTo(p,540,70,500);ex.caption('培养一段时间，伞柄顶端长出新的伞帽…');await wait(400);
+       const c=S.add({id:'newCap2',x:st.x+9-50,y:st.y-50,w:100,h:56,z:3,label:'长出伞形伞帽（与供核者一致）！',html:capSVG('M')});S.follow(rz,c);await S.grow(c,1500);c.el.classList.add('glow');
+       ex.caption('结果：菊花形伞藻的伞柄和假根 + 地中海伞藻的细胞核 → 长出伞形伞帽');},
+     log:'核移植：去核的菊花形伞藻获得地中海伞藻的细胞核后，长出了伞形伞帽——与提供细胞核的伞藻一致。'}
+  ],
+  conclusion:{text:'伞藻伞帽形状的遗传由（__）控制。',options:['伞柄','细胞核','假根中的细胞质'],answer:1,note:'嫁接实验说明伞帽形状与假根有关；核移植实验进一步排除了细胞质的影响，证明<b>伞帽形状由细胞核控制</b>。'}
+});
+
+/* ========================= 页面组装 ========================= */
+const tabsEl=$('#tabs'),badgesEl=$('#badges');
+EXPS.forEach((cfg,i)=>{
+  const b=document.createElement('button');b.className='tab';b.innerHTML=`<span class="opacity-70 mr-1">${i+1}</span>${cfg.short}<span class="done ml-1">✅</span>`;b.onclick=()=>show(i);tabsEl.appendChild(b);cfg.tab=b;
+  const bd=document.createElement('span');bd.className='badge';bd.textContent=i+1;badgesEl.appendChild(bd);cfg.badge=bd;
+  cfg.inst=new Experiment(cfg);
+});
+function show(i){EXPS.forEach((c,j)=>{c.tab.classList.toggle('active',i===j);c.inst.panel.classList.toggle('hidden',i!==j);});requestAnimationFrame(()=>EXPS[i].inst.S.fit());window.scrollTo({top:0,behavior:'smooth'});}
+function updateProgress(){let n=0;EXPS.forEach(c=>{const ok=c.inst.solved;c.badge.classList.toggle('on',ok);c.tab.classList.toggle('solved',ok);if(ok)n++;});if(n===EXPS.length){const s=$('#summary');s.classList.remove('hidden');s.scrollIntoView({behavior:'smooth',block:'center'});}}
+document.addEventListener('click',e=>{const img=e.target.closest('img.ref');if(img){$('#lightimg').src=img.src;const lb=$('#lightbox');lb.classList.remove('hidden');lb.classList.add('flex');}});
+show(0);
+</script>
+</body>
+</html>
